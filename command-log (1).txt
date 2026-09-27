@@ -1,0 +1,7 @@
+Target: http://localhost:3000
+Environment: Local isolated lab (Docker container on own machine, NOT public internet)
+
+Commands executed:
+  1) docker run -d -p 3000:3000 --name juice-shop bkimminich/juice-shop
+  2) nmap -sV -p- localhost
+  3) curl -I http://localhost:3000

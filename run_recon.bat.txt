@@ -1,0 +1,87 @@
+@echo off
+setlocal enabledelayedexpansion
+
+echo ============================================
+echo   Attack Surface Lab - Auto Setup and Scan
+echo ============================================
+echo.
+
+REM --- Step 1: Check Docker is running ---
+docker version >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Docker nahi mil raha. Pehle Docker Desktop kholo aur confirm karo
+    echo         status "Engine running" ya green dikh raha hai. Phir ye script
+    echo         dobara chalao.
+    echo.
+    pause
+    exit /b 1
+)
+echo [OK] Docker chal raha hai.
+echo.
+
+REM --- Step 2: Start Juice Shop container (our own local practice target) ---
+docker ps -a --format "{{.Names}}" | findstr /i "juice-shop" >nul 2>&1
+if errorlevel 1 (
+    echo [INFO] Practice target banaya ja raha hai - pehli baar download hoga...
+    docker run -d -p 3000:3000 --name juice-shop bkimminich/juice-shop >nul
+    if errorlevel 1 (
+        echo [ERROR] Target start nahi ho paya. Docker Desktop khula aur running hona chahiye.
+        pause
+        exit /b 1
+    )
+) else (
+    echo [INFO] Target pehle se bana hua hai, start kiya ja raha hai...
+    docker start juice-shop >nul
+)
+echo.
+
+echo [INFO] Target ko boot hone ke liye 15 second wait kar rahe hain...
+timeout /t 15 /nobreak >nul
+echo.
+
+REM --- Step 3: Output folder on Desktop ---
+set "OUTDIR=%USERPROFILE%\Desktop\attack-surface-lab-output"
+if not exist "%OUTDIR%" mkdir "%OUTDIR%"
+echo [INFO] Result yahan save honge: %OUTDIR%
+echo.
+
+REM --- Step 4: Run nmap scan (service discovery) ---
+where nmap >nul 2>&1
+if errorlevel 1 (
+    echo [WARNING] nmap install nahi mila. nmap.org se download/install karo,
+    echo           phir ye script dobara chalao taaki scan complete ho.
+    echo NOTE: nmap install nahi tha, is liye scan skip hua. > "%OUTDIR%\nmap-scan.txt"
+) else (
+    echo [INFO] Service aur version scan chal raha hai, thoda time lagega...
+    nmap -sV -p- localhost > "%OUTDIR%\nmap-scan.txt"
+    echo [OK] Scan complete: nmap-scan.txt
+)
+echo.
+
+REM --- Step 5: Capture HTTP response headers ---
+echo [INFO] Website ke response headers capture kiye ja rahe hain...
+curl -I http://localhost:3000 > "%OUTDIR%\http-headers.txt" 2>nul
+echo [OK] Headers save ho gaye: http-headers.txt
+echo.
+
+REM --- Step 6: Write sanitized command log ---
+(
+echo Target: http://localhost:3000
+echo Environment: Local isolated lab ^(Docker container on own machine, NOT public internet^)
+echo.
+echo Commands executed:
+echo   1^) docker run -d -p 3000:3000 --name juice-shop bkimminich/juice-shop
+echo   2^) nmap -sV -p- localhost
+echo   3^) curl -I http://localhost:3000
+) > "%OUTDIR%\command-log.txt"
+echo [OK] Command log saved: command-log.txt
+echo.
+
+echo ============================================
+echo   Sab kuch ho gaya! Result folder khol rahe hain...
+echo ============================================
+start "" "%OUTDIR%"
+echo.
+echo Agle step ke liye: report-template.md kholo aur inn files ka
+echo content use karke table aur diagram bharo.
+pause
